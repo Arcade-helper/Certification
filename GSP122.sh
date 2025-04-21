@@ -3,16 +3,26 @@ YELLOW_TEXT=$'\033[0;93m'
 BOLD_TEXT=$'\033[1m'
 clear
 
-echo -n "${YELLOW_TEXT}${BOLD_TEXT}Please enter the region: ${RESET_FORMAT}"
-read REGION
-export REGION
+read -p "${YELLOW_TEXT}${BOLD_TEXT}Enter the Zone: ${RESET_FORMAT}" ZONE
+export ZONE
 
-gsutil -m cp -r gs://spls/gsp067/python-docs-samples .
+gcloud compute instances create arcadehelper --project=$DEVSHELL_PROJECT_ID --zone=$ZONE --machine-type=e2-medium --network-interface=network-tier=PREMIUM,stack-type=IPV4_ONLY,subnet=default --metadata=enable-oslogin=true --maintenance-policy=MIGRATE --provisioning-model=STANDARD --scopes=https://www.googleapis.com/auth/devstorage.read_only,https://www.googleapis.com/auth/logging.write,https://www.googleapis.com/auth/monitoring.write,https://www.googleapis.com/auth/servicecontrol,https://www.googleapis.com/auth/service.management.readonly,https://www.googleapis.com/auth/trace.append --tags=http-server --create-disk=auto-delete=yes,boot=yes,device-name=lol,image=projects/centos-cloud/global/images/centos-7-v20231010,mode=rw,size=20,type=projects/$DEVSHELL_PROJECT_ID/zones/$ZONE/diskTypes/pd-balanced --no-shielded-secure-boot --shielded-vtpm --shielded-integrity-monitoring --labels=goog-ec-src=vm_add-gcloud --reservation-affinity=any
 
-cd python-docs-samples/appengine/standard_python3/hello_world
+sleep 30
 
-sed -i "s/python37/python39/g" app.yaml
+gcloud compute ssh arcadehelper --project=$DEVSHELL_PROJECT_ID --zone=$ZONE --quiet --command="\
+sudo tee -a /etc/yum.repos.d/google-cloud-sdk.repo << EOM
+[google-cloud-sdk]
+name=Google Cloud SDK
+baseurl=https://packages.cloud.google.com/yum/repos/cloud-sdk-el7-x86_64
+enabled=1
+gpgcheck=1
+repo_gpgcheck=0
+gpgkey=https://packages.cloud.google.com/yum/doc/yum-key.gpg
+        https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
+EOM
 
-gcloud app create --region=$REGION
+sudo yum install google-cloud-sdk -y
 
-yes | gcloud app deploy
+gcloud init --console-only
+"
